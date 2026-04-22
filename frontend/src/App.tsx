@@ -20,7 +20,8 @@ const defaultConfig: BacktestConfig = {
 }
 
 const App = () => {
-  const [config, setConfig] = useState<BacktestConfig>(defaultConfig)
+  const [draftConfig, setDraftConfig] = useState<BacktestConfig>(defaultConfig)
+  const [appliedConfig, setAppliedConfig] = useState<BacktestConfig>(defaultConfig)
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,22 +31,29 @@ const App = () => {
     return result.holdings_history[result.holdings_history.length - 1].tickers
   }, [result])
 
-  const onRunBacktest = useCallback(async () => {
+  const onRunBacktest = useCallback(async (nextConfig: BacktestConfig) => {
     setError(null)
     setLoading(true)
     try {
-      const data = await runBacktest(config)
+      const data = await runBacktest(nextConfig)
+      setAppliedConfig(nextConfig)
       setResult(data)
     } catch {
       setError('Failed to run backtest. Ensure backend is running and VITE_API_BASE_URL is correct.')
     } finally {
       setLoading(false)
     }
-  }, [config])
+  }, [])
+
+  const onResetConfig = useCallback(() => {
+    setDraftConfig(defaultConfig)
+  }, [])
 
   useEffect(() => {
-    void onRunBacktest()
+    void onRunBacktest(defaultConfig)
   }, [onRunBacktest])
+
+  const hasDraftChanges = JSON.stringify(draftConfig) !== JSON.stringify(appliedConfig)
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -53,7 +61,14 @@ const App = () => {
         <DashboardHeader />
 
         <div className="grid gap-6 lg:grid-cols-[360px,1fr]">
-          <BacktestPanel config={config} onChange={setConfig} onSubmit={onRunBacktest} loading={loading} />
+          <BacktestPanel
+            config={draftConfig}
+            hasDraftChanges={hasDraftChanges}
+            loading={loading}
+            onChange={setDraftConfig}
+            onReset={onResetConfig}
+            onSubmit={() => onRunBacktest(draftConfig)}
+          />
 
           <section className="space-y-6">
             {error && (
